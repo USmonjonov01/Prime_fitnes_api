@@ -1,0 +1,144 @@
+// Prime Fit: Postgres (Neon) uchun sxema.
+// DATABASE_URL  - Neon "pooled" ulanish (ilova ishlatadi)
+// DIRECT_URL    - Neon "direct" ulanish (faqat migratsiya uchun)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  OWNER
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  FROZEN
+  BLOCKED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+}
+
+// Bitta jadval: zal egasi, xodim va mijoz. Frontenddagi "admins" va "register" shu yerda birlashadi.
+model User {
+  id                 String     @id @default(cuid())
+  role               Role
+  fullName           String
+  phone              String     @unique // "+998901234567" ko'rinishida saqlanadi
+  code               String?    @unique // karta kodi ("001"), faqat mijozlarda
+  passwordHash       String
+  mustChangePassword Boolean    @default(true)
+  status             UserStatus @default(ACTIVE)
+  failedLogins       Int        @default(0)
+  lockedUntil        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  subscriptions Subscription[] @relation("CustomerSubscriptions")
+  soldByMe      Subscription[] @relation("SoldBy")
+  visits        Visit[]        @relation("CustomerVisits")
+  checkedInByMe Visit[]        @relation("CheckedInBy")
+  expenses      Expense[]
+  refreshTokens RefreshToken[]
+
+  @@index([role, status])
+}
+
+// Abonement turlari (narx va qoidalar bazada: ega keyin o'zgartira oladi)
+model Plan {
+  id            String         @id // "day" | "month" | "quarter" | "half" | "year"
+  name          String
+  months        Int? // bir kunlik uchun null
+  price         Int // so'mda
+  visitTotal    Int
+  validDays     Int
+  active        Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  subscriptions Subscription[]
+}
+
+// Sotilgan abonement. Narx va qoidalar sotilgan paytdagi nusxa (plan keyin o'zgarsa ham tarix buzilmaydi)
+model Subscription {
+  id         String             @id @default(cuid())
+  userId     String
+  planId     String
+  startDate  DateTime
+  endDate    DateTime
+  price      Int
+  visitTotal Int
+  visitUsed  Int                @default(0)
+  status     SubscriptionStatus @default(ACTIVE)
+  soldById   String
+  createdAt  DateTime           @default(now())
+
+  user   User    @relation("CustomerSubscriptions", fields: [userId], references: [id], onDelete: Restrict)
+  plan   Plan    @relation(fields: [planId], references: [id])
+  soldBy User    @relation("SoldBy", fields: [soldById], references: [id])
+  visits Visit[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status, endDate])
+}
+
+// Kirish jurnali. (userId, visitDay) unique: bir mijoz bir kunda ikki marta belgilanmaydi (bazaning o'zi kafolatlaydi)
+model Visit {
+  id             String   @id @default(cuid())
+  userId         String
+  subscriptionId String
+  checkedInById  String
+  visitDay       String   @db.VarChar(10) // "2026-11-25" (Toshkent vaqti bilan)
+  createdAt      DateTime @default(now())
+
+  user         User         @relation("CustomerVisits", fields: [userId], references: [id], onDelete: Restrict)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  checkedInBy  User         @relation("CheckedInBy", fields: [checkedInById], references: [id])
+
+  @@unique([userId, visitDay])
+  @@index([createdAt])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  amount      Int
+  category    String?
+  note        String?
+  date        DateTime
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([date])
+}
+
+// Refresh tokenning o'zi emas, faqat SHA-256 hashi saqlanadi
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Mijoz kodini ketma-ket va poygasiz berish uchun hisoblagich
+model Counter {
+  name  String @id
+  value Int    @default(0)
+}
