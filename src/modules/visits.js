@@ -7,6 +7,7 @@ import { validate } from "../middleware/validate.js"
 import { AppError, conflict } from "../utils/errors.js"
 import { dayKey } from "../utils/time.js"
 import { stateOf, visitsLeftOf } from "../utils/subscription.js"
+import { logActivity } from "../utils/activity.js"
 
 const router = Router()
 router.use(authenticate, staffOnly)
@@ -18,18 +19,24 @@ const denied = (status, reason, client) =>
 /* POST /visits/check-in { code }: kirishni belgilash.
    Qoidalar: mijoz faol bo'lsin; muddati tugamagan va tashrifi qolgan abonement bo'lsin (eng yaqin tugaydigani ishlatiladi);
    bir kunda bir marta. Hammasi bitta tranzaksiyada: ikki xodim bir vaqtda belgilasa ham tashrif ikki marta ayirilmaydi. */
+// Rad etilgan urinish ham jurnalga yoziladi: boshqa xodim ham "nima bo'ldi" deb ko'ra oladi
+const deny = async (req, code, status, reason, client) => {
+  await logActivity({ type: "CHECK_IN_DENIED", actorId: req.user.id, customerId: client?.id ?? null, data: { reason, code } })
+  return denied(status, reason, client)
+}
+
 router.post("/check-in", validate({ body: z.object({ code: z.string().trim().min(1).max(40) }) }), async (req, res) => {
   const { code } = req.valid.body
   const client = await prisma.user.findFirst({ where: { code, role: "CUSTOMER" } })
-  if (!client) throw denied(404, "not_found")
+  if (!client) throw await deny(req, code, 404, "not_found")
 
   const info = { id: client.id, full_name: client.fullName, code: client.code }
-  if (client.status !== "ACTIVE") throw denied(409, "blocked", info)
+  if (client.status !== "ACTIVE") throw await deny(req, code, 409, "blocked", info)
 
   const now = new Date()
   const subs = await prisma.subscription.findMany({ where: { userId: client.id, status: "ACTIVE" }, orderBy: { endDate: "asc" } })
   const usable = subs.find((s) => stateOf(s, now) === "active")
-  if (!usable) throw denied(409, subs.some((s) => stateOf(s, now) === "finished") ? "finished" : "expired", info)
+  if (!usable) throw await deny(req, code, 409, subs.some((s) => stateOf(s, now) === "finished") ? "finished" : "expired", info)
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -44,11 +51,13 @@ router.post("/check-in", validate({ body: z.object({ code: z.string().trim().min
       if (updated.count !== 1) throw conflict("Bir vaqtda o'zgarish bo'ldi. Qayta urinib ko'ring.", "RETRY")
     })
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") throw denied(409, "already_today", info)
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") throw await deny(req, code, 409, "already_today", info)
     throw err
   }
 
-  res.status(201).json({ client: info, visitsLeft: visitsLeftOf(usable) - 1, method: "code" })
+  const visitsLeft = visitsLeftOf(usable) - 1
+  await logActivity({ type: "CHECK_IN", actorId: req.user.id, customerId: client.id, data: { visitsLeft, method: "code" } })
+  res.status(201).json({ client: info, visitsLeft, method: "code" })
 })
 
 export default router

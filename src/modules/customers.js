@@ -6,7 +6,8 @@ import { authenticate, staffOnly } from "../middleware/auth.js"
 import { validate } from "../middleware/validate.js"
 import { conflict, notFound } from "../utils/errors.js"
 import { normalizePhone } from "../utils/phone.js"
-import { customerOut, subscriptionOut } from "../utils/serialize.js"
+import { customerOut, statusOut, subscriptionOut } from "../utils/serialize.js"
+import { logActivity } from "../utils/activity.js"
 import { hashPassword } from "./auth.js"
 
 const router = Router()
@@ -78,6 +79,7 @@ router.post(
         data: { role: "CUSTOMER", fullName: full_name, phone: phone_number, code: String(counter.value).padStart(3, "0"), passwordHash, mustChangePassword: true },
       })
     })
+    await logActivity({ type: "CUSTOMER_ADDED", actorId: req.user.id, customerId: user.id })
     res.status(201).json({ ...customerOut(user), temporary_password: password })
   },
 )
@@ -90,6 +92,9 @@ router.patch(
     const found = await prisma.user.findFirst({ where: { id: req.valid.params.id, role: "CUSTOMER" } })
     if (!found) throw notFound("Mijoz topilmadi")
     const user = await prisma.user.update({ where: { id: found.id }, data: { status: STATUSES[req.valid.body.status] } })
+    if (user.status !== found.status) {
+      await logActivity({ type: "CUSTOMER_STATUS_CHANGED", actorId: req.user.id, customerId: user.id, data: { from: statusOut(found.status), to: statusOut(user.status) } })
+    }
     res.json(customerOut(user))
   },
 )

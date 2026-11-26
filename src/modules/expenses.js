@@ -14,7 +14,7 @@ const body = z.object({
   amount: z.number().int().positive().max(1_000_000_000),
   category: z.string().trim().max(50).optional(),
   note: z.string().trim().max(300).optional(),
-  date: z.coerce.date().optional(),
+  date: z.coerce.date().refine((d) => d.getTime() <= Date.now() + 24 * 60 * 60 * 1000, "Sana kelajakda bo'lmasin").optional(),
 })
 
 router.get(

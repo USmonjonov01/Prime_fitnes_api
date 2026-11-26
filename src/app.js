@@ -16,6 +16,7 @@ import dashboard from "./modules/dashboard.js"
 import reports from "./modules/reports.js"
 import expenses from "./modules/expenses.js"
 import me from "./modules/me.js"
+import activity from "./modules/activity.js"
 
 export const app = express()
 
@@ -45,6 +46,7 @@ app.use("/api/dashboard", dashboard)
 app.use("/api/reports", reports)
 app.use("/api/expenses", expenses)
 app.use("/api/me", me)
+app.use("/api/activity", activity)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

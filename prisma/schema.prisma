@@ -51,6 +51,8 @@ model User {
   checkedInByMe Visit[]        @relation("CheckedInBy")
   expenses      Expense[]
   refreshTokens RefreshToken[]
+  activitiesBy  Activity[]     @relation("ActivityActor")
+  activitiesAbout Activity[]   @relation("ActivityCustomer")
 
   @@index([role, status])
 }
@@ -141,4 +143,21 @@ model RefreshToken {
 model Counter {
   name  String @id
   value Int    @default(0)
+}
+
+// Voqealar lentasi: kirish, rad etilgan kirish, yangi mijoz, abonement sotuvi, holat o'zgarishi.
+// Bazada saqlanadi, shuning uchun hamma xodim bir xil ko'radi, mijoz esa faqat o'ziga tegishlisini.
+model Activity {
+  id         String   @id @default(cuid())
+  type       String // CHECK_IN | CHECK_IN_DENIED | CUSTOMER_ADDED | SUBSCRIPTION_SOLD | CUSTOMER_STATUS_CHANGED
+  actorId    String? // amalni bajargan xodim
+  customerId String? // voqea kimga tegishli (kod topilmagan urinishda null)
+  data       Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  actor    User? @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  customer User? @relation("ActivityCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([customerId, createdAt])
 }

@@ -35,6 +35,8 @@ npm run dev                 # http://localhost:4000/health
 | GET | /reports?months=6 | owner | hisobot |
 | GET/POST/PUT/DELETE | /expenses | owner | chiqimlar |
 | GET | /me/dashboard | customer | mijoz bosh sahifasi |
+| GET | /activity?limit=30 | staff, owner | voqealar lentasi (kirish, rad etilgan kirish, yangi mijoz, sotuv, holat). Narx faqat egaga |
+| GET | /me/activity | customer | mijozning o'ziga tegishli voqealar |
 
 ## Kirishga ruxsat berilmasa (check-in)
 `404` yoki `409`, `error.code = "CHECKIN_DENIED"`, `error.details = { reason, client }`.

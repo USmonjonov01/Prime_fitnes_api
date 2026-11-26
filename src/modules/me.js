@@ -1,5 +1,6 @@
 import { Router } from "express"
 import { prisma } from "../db.js"
+import { activityOut } from "../utils/activity.js"
 import { authenticate, customerOnly } from "../middleware/auth.js"
 import { daysLeftOf, stateOf } from "../utils/subscription.js"
 import { dateOf, timeOf } from "../utils/uz.js"
@@ -32,6 +33,17 @@ router.get("/dashboard", async (req, res) => {
       : null,
     history: visits.map((v) => ({ id: v.id, date: dateOf(v.createdAt), time: timeOf(v.createdAt) })),
   })
+})
+
+/* GET /me/activity: mijozning o'ziga tegishli voqealar (kirish, abonement, holat). Xodim ismi yashiriladi. */
+router.get("/activity", async (req, res) => {
+  const items = await prisma.activity.findMany({
+    where: { customerId: req.user.id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    include: { customer: { select: { id: true, fullName: true, code: true } } },
+  })
+  res.json(items.map((a) => activityOut(a, { showPrice: true, showActor: false })))
 })
 
 export default router

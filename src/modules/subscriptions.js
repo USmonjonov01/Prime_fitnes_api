@@ -5,6 +5,7 @@ import { authenticate, ownerOnly, staffOnly } from "../middleware/auth.js"
 import { validate } from "../middleware/validate.js"
 import { AppError, conflict, forbidden, notFound } from "../utils/errors.js"
 import { DAY_MS, endOfDay } from "../utils/time.js"
+import { logActivity } from "../utils/activity.js"
 
 const router = Router()
 router.use(authenticate)
@@ -52,6 +53,12 @@ router.post(
         visitTotal: plan.visitTotal,
         soldById: req.user.id,
       },
+    })
+    await logActivity({
+      type: "SUBSCRIPTION_SOLD",
+      actorId: req.user.id,
+      customerId: customer.id,
+      data: { plan: plan.name, price: sub.price, visitTotal: sub.visitTotal, endDate: sub.endDate.toISOString() },
     })
     res.status(201).json({
       id: sub.id,
