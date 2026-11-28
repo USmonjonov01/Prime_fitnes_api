@@ -10,6 +10,15 @@ const schema = z.object({
   ACCESS_TTL_MIN: z.coerce.number().default(15),
   REFRESH_TTL_DAYS: z.coerce.number().default(30),
   CORS_ORIGINS: z.string().default("http://localhost:5173"),
+    // Telefon raqamini SMS kod bilan tasdiqlash. console: faqat serverga yozadi (lokal), eskiz: haqiqiy SMS
+  SMS_PROVIDER: z.enum(["console", "eskiz"]).default("console"),
+  ESKIZ_EMAIL: z.string().optional(),
+  ESKIZ_PASSWORD: z.string().optional(),
+  ESKIZ_FROM: z.string().default("4546"),
+  ESKIZ_BASE_URL: z.string().default("https://notify.eskiz.uz/api"),
+  SMS_TEMPLATE: z.string().includes("{code}", { message: "SMS_TEMPLATE ichida {code} bo'lishi kerak" })
+    .default("Gym Prime Fit: tasdiqlash kodi {code}. Uni hech kimga bermang."),
+  SMS_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 })
 
 const parsed = schema.safeParse(process.env)

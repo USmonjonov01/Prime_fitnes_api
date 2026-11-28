@@ -30,7 +30,8 @@ npm run dev                 # http://localhost:4000/health
 | GET/POST | /staff, /staff/:id/status, /staff/:id/reset-password | owner | xodimlar |
 | POST | /subscriptions `{code \| customer_id, plan_id, price?}` | staff, owner | abonement sotish |
 | POST | /subscriptions/:id/cancel | owner | bekor qilish |
-| POST | /visits/check-in `{code}` | staff, owner | kirishni belgilash |
+| POST | /visits/check-in `{qr}` yoki `{code}` | staff, owner | kirishni belgilash: QR (asosiy) yoki qo'lda kod (zaxira) |
+| GET | /me/qr | customer | kirish QR kodi: 45 soniyalik imzolangan matn, telefon har ~30 soniyada yangilaydi |
 | GET | /dashboard/admin | staff, owner | bosh panel ma'lumoti |
 | GET | /reports?months=6 | owner | hisobot |
 | GET/POST/PUT/DELETE | /expenses | owner | chiqimlar |
@@ -40,7 +41,7 @@ npm run dev                 # http://localhost:4000/health
 
 ## Kirishga ruxsat berilmasa (check-in)
 `404` yoki `409`, `error.code = "CHECKIN_DENIED"`, `error.details = { reason, client }`.
-reason: `not_found | blocked | expired | finished | already_today`.
+reason: `not_found | blocked | expired | finished | already_today | qr_expired | qr_invalid`.
 
 ## Deploy
 Render / Railway / Fly.io: Build `npm install && npx prisma migrate deploy`, Start `npm start`.

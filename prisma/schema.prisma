@@ -40,6 +40,7 @@ model User {
   passwordHash       String
   mustChangePassword Boolean    @default(true)
   status             UserStatus @default(ACTIVE)
+  phoneVerifiedAt    DateTime? // raqam SMS kod bilan tasdiqlangan vaqt. null: tasdiqlanmagan (hech narsa bloklanmaydi, faqat belgi)
   failedLogins       Int        @default(0)
   lockedUntil        DateTime?
   createdAt          DateTime   @default(now())
@@ -53,6 +54,7 @@ model User {
   refreshTokens RefreshToken[]
   activitiesBy  Activity[]     @relation("ActivityActor")
   activitiesAbout Activity[]   @relation("ActivityCustomer")
+  phoneVerifications PhoneVerification[]
 
   @@index([role, status])
 }
@@ -160,4 +162,21 @@ model Activity {
 
   @@index([createdAt])
   @@index([customerId, createdAt])
+}
+
+// Telefon raqamini SMS bilan tasdiqlash urinishlari. Kodning o'zi emas, faqat HMAC hashi saqlanadi.
+model PhoneVerification {
+  id         String    @id @default(cuid())
+  userId     String
+  phone      String // kod yuborilgan raqam: raqam keyin o'zgarsa eski kod yaroqsiz
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime? // ishlatilgan yoki yopilgan (yangi kod yuborilgan, urinishlar tugagan)
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }

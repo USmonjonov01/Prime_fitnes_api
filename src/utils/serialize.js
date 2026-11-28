@@ -17,6 +17,7 @@ export const publicUser = (u) => ({
 export const customerOut = (u) => ({
   ...publicUser(u),
   status: STATUS[u.status],
+  phone_verified: Boolean(u.phoneVerifiedAt),
   created_at: u.createdAt,
 })
 

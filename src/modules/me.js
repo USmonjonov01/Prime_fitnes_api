@@ -3,6 +3,7 @@ import { prisma } from "../db.js"
 import { activityOut } from "../utils/activity.js"
 import { authenticate, customerOnly } from "../middleware/auth.js"
 import { daysLeftOf, stateOf } from "../utils/subscription.js"
+import { QR_TTL_SEC, createCheckinToken } from "../utils/checkinToken.js"
 import { dateOf, timeOf } from "../utils/uz.js"
 
 const router = Router()
@@ -33,6 +34,14 @@ router.get("/dashboard", async (req, res) => {
       : null,
     history: visits.map((v) => ({ id: v.id, date: dateOf(v.createdAt), time: timeOf(v.createdAt) })),
   })
+})
+
+/* GET /me/qr: kirish uchun QR kod matni. Qisqa muddatli (45 soniya), telefon uni har ~30 soniyada yangilab turadi.
+   Faqat shu mijozning o'z sessiyasi oladi (id tokendan), shuning uchun boshqa birov bu kodni ola olmaydi. */
+router.get("/qr", (req, res) => {
+  const { token, exp } = createCheckinToken(req.user.id)
+  res.set("Cache-Control", "no-store")
+  res.json({ token, expires_in: QR_TTL_SEC, expires_at: new Date(exp * 1000).toISOString() })
 })
 
 /* GET /me/activity: mijozning o'ziga tegishli voqealar (kirish, abonement, holat). Xodim ismi yashiriladi. */
